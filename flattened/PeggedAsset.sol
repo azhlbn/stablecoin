@@ -593,6 +593,16 @@ abstract contract Initializable {
     }
 }
 
+// src/interfaces/IPeggedAsset.sol
+
+contract IPeggedAsset {
+    /// @dev Not allowed to pass zero address
+    error ZeroAddress();
+
+    /// @dev Allowed only for ADMIN and SUPER_ADMIN roles
+    error OnlyForAdmin();
+}
+
 // lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol
 
 // OpenZeppelin Contracts (last updated v5.0.0) (token/ERC20/extensions/IERC20Metadata.sol)
@@ -1242,47 +1252,6 @@ abstract contract ERC20Upgradeable is Initializable, ContextUpgradeable, IERC20,
     }
 }
 
-// lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol
-
-// OpenZeppelin Contracts (last updated v5.0.0) (token/ERC20/extensions/ERC20Burnable.sol)
-
-/**
- * @dev Extension of {ERC20} that allows token holders to destroy both their own
- * tokens and those that they have an allowance for, in a way that can be
- * recognized off-chain (via event analysis).
- */
-abstract contract ERC20BurnableUpgradeable is Initializable, ContextUpgradeable, ERC20Upgradeable {
-    function __ERC20Burnable_init() internal onlyInitializing {
-    }
-
-    function __ERC20Burnable_init_unchained() internal onlyInitializing {
-    }
-    /**
-     * @dev Destroys a `value` amount of tokens from the caller.
-     *
-     * See {ERC20-_burn}.
-     */
-    function burn(uint256 value) public virtual {
-        _burn(_msgSender(), value);
-    }
-
-    /**
-     * @dev Destroys a `value` amount of tokens from `account`, deducting from
-     * the caller's allowance.
-     *
-     * See {ERC20-_burn} and {ERC20-allowance}.
-     *
-     * Requirements:
-     *
-     * - the caller must have allowance for ``accounts``'s tokens of at least
-     * `value`.
-     */
-    function burnFrom(address account, uint256 value) public virtual {
-        _spendAllowance(account, _msgSender(), value);
-        _burn(account, value);
-    }
-}
-
 // src/PeggedAsset.sol
 
 // todo
@@ -1294,9 +1263,10 @@ abstract contract ERC20BurnableUpgradeable is Initializable, ContextUpgradeable,
 // - ридер для отображения текущего пега. Функция будет выдавать соотношение баланса в ЛП токенах овнера и саплая новых токенов.
 // - логика для ручного восстановления пега (см. edge cases)
 
-contract PeggedAsset is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, AccessControlUpgradeable {
+contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessControlUpgradeable {
     bytes32 public constant SUPER_ADMIN = keccak256("SUPER_ADMIN");
     bytes32 public constant ADMIN = keccak256("ADMIN");
+    bytes32 public constant BLACKLISTED = keccak256("BLACKLISTED");
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -1305,17 +1275,37 @@ contract PeggedAsset is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeabl
 
     function initialize(
         address defaultAdmin, 
-        address minter
+        string memory tokenName,
+        string memory tokenSymbol
     ) initializer public {
-        __ERC20_init("MyToken", "MTK");
-        __ERC20Burnable_init();
+        __ERC20_init(tokenName, tokenSymbol);
         __AccessControl_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
-        _grantRole(MINTER_ROLE, minter);
+        _grantRole(SUPER_ADMIN, defaultAdmin);
     }
 
-    function mint(address to, uint256 amount) public onlyRole(SUPER_ADMIN) {
-        _mint(to, amount);
+    function mint(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
+        _mint(who, amount);
+    }
+
+    function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
+        _burn(who, amount);
+    }
+
+    function addToBlacklist(address who) external onlyAdmin {
+        if (who == address(0)) revert ZeroAddress();
+        _grantRole(BLACKLISTED, who);
+    }
+
+    function removeFromBlacklist(address who) external onlyAdmin {
+        if (who == address(0)) revert ZeroAddress();
+        _revokeRole(BLACKLISTED, who);
+    }
+
+    modifier onlyAdmin(address who) {
+        if (!hasRole(SUPER_ADMIN)) revert OnlyForAdmin();
+        if (!hasRole(ADMIN)) revert OnlyForAdmin();
+        _;
     }
 }
