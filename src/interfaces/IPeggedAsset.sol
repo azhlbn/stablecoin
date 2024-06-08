@@ -21,6 +21,9 @@ contract IPeggedAsset {
     /// @dev Not allowed to renounce default admin role
     error NotAllowed();
 
+    /// @dev Transfer not allowed if amount of LP tokens less then owner's balance in tokens
+    error NotEnoughCollateral();
+
     event Minted(address indexed from, uint256 indexed amount);
     event Burned(address indexed from, uint256 indexed amount);
     event AddedToBlacklist(address indexed who);

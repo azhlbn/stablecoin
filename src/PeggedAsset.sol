@@ -8,25 +8,27 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {IPeggedAsset} from "interfaces/IPeggedAsset.sol";
 
 // todo
-// - Роли с доступами:
+// + Роли с доступами:
 // SUPER_ADMIN: блэклист / mint / burn / ручное восстановление пега
 // ADMIN: блэклист / ручное восстановление пега
-// - Blacklist. Добавленный адрес не сможет получать и отправлять токены.
-// - mint/burn токенов овнером. Этим будет меняться пег.
-// - ридер для отображения текущего пега. Функция будет выдавать соотношение баланса в ЛП токенах овнера и саплая новых токенов.
+// + Blacklist. Добавленный адрес не сможет получать и отправлять токены.
+// + mint/burn токенов овнером. Этим будет меняться пег.
+// + ридер для отображения текущего пега. Функция будет выдавать соотношение баланса в ЛП токенах овнера и саплая новых токенов.
 // - логика для ручного восстановления пега (см. edge cases)
-// - добавить смену главного админа
+// + добавить смену главного админа
 
 contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessControlUpgradeable {
     bytes32 public constant SUPER_ADMIN = keccak256("SUPER_ADMIN");
     bytes32 public constant ADMIN = keccak256("ADMIN");
     bytes32 public constant BLACKLISTED = keccak256("BLACKLISTED");
 
+    uint256 public constant PEG_PRECISION = 1e18;
+
     IERC20 public trackedToken;
     address public owner;
 
-    // added and subratcted amount of token for peg deviation calculate
-    int256 public addedSubtracted;
+    // peg deviation
+    int256 public deviation;
 
     address internal _grantedOwner;
 
@@ -62,9 +64,22 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         _;
     }
 
-    /// @dev Manual peg adjusting
-    function sync() public onlyAdmin {
+    /// @dev Peg adjusting
+    function sync() public returns (bool) {
+        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
+        int256 targetSupply = int256(trackedTokenBalance) + deviation;
 
+        // 
+        if (targetSupply < 0) return false;
+
+        uint256 supply = totalSupply();
+        if (targetSupply < supply) {
+            _burn(owner, supply - targetSupply);
+        } else if (targetSupply > supply) {
+            _mint(owner, targetSupply - supply);
+        }
+
+        return true;
     }
 
     function mint(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
@@ -115,7 +130,6 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         _grantedOwner = address(0);
 
     }
-    
 
     /// @notice The ability to refuse a DEFAULT_ADMIN_ROLE is disabled
     function revokeRole(bytes32 role, address account) public override onlyRole(getRoleAdmin(role)) {
@@ -132,17 +146,20 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     /// INTERNAL LOGIC
 
     function _updatePeg(int256 amount) internal {
-        unchecked { addedSubtracted += int256(amount); }
+        unchecked { deviation += int256(amount); }
     }
 
     function _update(address from, address to, uint256 value) internal override {
         if (hasRole(BLACKLISTED, msg.sender)) revert Blacklisted();
+        // if (trackedToken.balanceOf(owner) < balanceOf(owner)) revert NotEnoughCollateral();
         super._update(from, to, value);
     }
 
     /// READERS
 
+    /// @notice Current peg deviation
     function currentPeg() external view returns (uint256) {
-        
+        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
+        return uint256(int256(trackedTokenBalance) + deviation) * PEG_PRECISION / trackedTokenBalance;
     }
 }
