@@ -24,6 +24,15 @@ contract IPeggedAsset {
     /// @dev Transfer not allowed if amount of LP tokens less then owner's balance in tokens
     error NotEnoughCollateral();
 
+    /// @dev The transfer or burn is not allowed if after this the balance of this owner's token falls below minOwnerBalance
+    error MinOwnerBalanceCrossed();
+
+    /// @dev Going beyond maximum deviation
+    error TooLargeDeviation();
+
+    /// @dev Max depeg reached, not allow to transfer any tokens
+    error MaxDepegReached();
+
     event Minted(address indexed from, uint256 indexed amount);
     event Burned(address indexed from, uint256 indexed amount);
     event AddedToBlacklist(address indexed who);

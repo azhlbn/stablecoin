@@ -16,14 +16,17 @@ import {IPeggedAsset} from "interfaces/IPeggedAsset.sol";
 // + ридер для отображения текущего пега. Функция будет выдавать соотношение баланса в ЛП токенах овнера и саплая новых токенов.
 // + логика для ручного восстановления пега (см. edge cases)
 // + добавить смену главного админа
-// - добавить ограничение на отклонение пега (?)
+// + добавить ограничение на отклонение пега (?)
 
 // flow
 // - деплой контракта, минт соответствующего колва токенов
-// - овнер передает токены кому хочет. Может передавать пока на балансе токенов не меньше чем установлено. Чтобы было что сжигать при колебании колва ЛП
-// - овнер может сжигать и минтить токены кому хочет если отклонение пега не больше определенного значения. Это значение может быть установлено овнером.
+// - овнер передает токены кому хочет. Может передавать/сжигать пока на балансе токенов не меньше чем установлено. 
+//   Чтобы было что сжигать при колебании колва ЛП
+// - овнер может сжигать и минтить токены кому хочет если отклонение пега не больше определенного значения. 
+//   Это значение может быть установлено овнером.
 // - пользователи могут передавать токены если они не в блэклисте. В блэклист может добавить любой админ. Только овнер назначает роли.
-// - пользователи могут передавать токены если отклонение пэга в большую сторону не больше определенного значения. То есть пока их обеспечение достаточное
+// - пользователи могут передавать токены если отклонение пэга в большую сторону не больше определенного значения. 
+//   То есть пока их обеспечение достаточное
 // - вызов функции sync может делать любой. Эта функция контролирует саплай токена. 
 //   Если нужно доминтить токены, они доминчиваются на адрес овнера. 
 //   Если нужно сжечь, они сжигаются у овнера. 
@@ -43,9 +46,10 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     // peg deviation
     int256 public deviation;
-    int256 public maxDeviation;
+    uint256 public maxDeviation;
 
     uint256 public minOwnerBalance;
+    uint256 public maxDepeg;
 
     address internal _grantedOwner;
 
@@ -73,10 +77,13 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         _mint(owner, trackedToken.balanceOf(owner));
 
         // by default equal to 10% of initial supply
-        maxDeviation = int256(trackedToken.balanceOf(owner)) / 10;
+        maxDeviation = trackedToken.balanceOf(owner) / 10;
 
         // by default equal to 50% of initial supply
         minOwnerBalance = trackedToken.balanceOf(owner) / 2;
+
+        // by default equal to 10% of initial supply
+        maxDepeg = trackedToken.balanceOf(owner) / 10;
 
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
         _grantRole(SUPER_ADMIN, owner);
@@ -87,10 +94,17 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         _;
     }
 
-    modifier checkValidity() {
-        int256 targetSupply = int256(trackedToken.balanceOf(owner)) + deviation;
+    modifier checkDeviation(int256 value) {
+        if (deviation + value > int256(maxDeviation) || deviation + value < -int256(maxDeviation)) revert TooLargeDeviation();
         _;
     }
+
+    modifier checkOwnerBalance(address from, uint256 value) {
+        if (from == owner && balanceOf(owner) - value < minOwnerBalance) revert MinOwnerBalanceCrossed();
+        _;
+    }
+
+    /// PUBLIC LOGIC
 
     /// @dev Peg adjusting
     function sync() public {
@@ -108,17 +122,47 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         }
     }
 
-    function mint(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
+    function transfer(address to, uint256 value) public override checkOwnerBalance(msg.sender, value) returns (bool) {
+        if (hasRole(BLACKLISTED, msg.sender)) revert Blacklisted();
+        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
+        if (trackedTokenBalance < totalSupply() && totalSupply() - trackedTokenBalance > maxDepeg) revert MaxDepegReached();
+        return super.transfer(to, value);
+    } 
+
+    function transferFrom(address from, address to, uint256 value) public override checkOwnerBalance(from, value) returns (bool) {
+        if (hasRole(BLACKLISTED, from)) revert Blacklisted();
+        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
+        if (trackedTokenBalance < totalSupply() && totalSupply() - trackedTokenBalance > maxDepeg) revert MaxDepegReached();
+        return super.transferFrom(from, to, value);
+    }
+
+    /// SUPER ADMIN LOGIC
+
+    function mint(address who, uint256 amount) public onlyRole(SUPER_ADMIN) checkDeviation(int256(amount)) {
         _updatePeg(int256(amount));
         _mint(who, amount);
         emit Minted(who, amount);
     }
 
-    function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
+    function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) checkOwnerBalance(who, amount) checkDeviation(-int256(amount)) {
         _updatePeg(-int256(amount));
         _burn(who, amount);
         emit Burned(who, amount);
     }
+
+    function setMaxDeviation(uint256 value) external onlyRole(SUPER_ADMIN) {
+        maxDeviation = value;
+    }
+
+    function setMinOwnerBalance(uint256 value) external onlyRole(SUPER_ADMIN) {
+        minOwnerBalance = value;
+    }
+
+    function setMaxDegep(uint256 value) external onlyRole(SUPER_ADMIN) {
+        maxDepeg = value;
+    }
+
+    /// ADMIN LOGIC
 
     function addToBlacklist(address who) external onlyAdmin {
         if (who == address(0)) revert ZeroAddress();
@@ -130,14 +174,6 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         if (who == address(0)) revert ZeroAddress();
         _revokeRole(BLACKLISTED, who);
         emit RevomedFromBlacklist(who);
-    }
-
-    function setMaxDeviation(int256 value) external onlyRole(SUPER_ADMIN) {
-        maxDeviation = value;
-    }
-
-    function setMinOwnerBalance(uint256 amount) external onlyRole(SUPER_ADMIN) {
-        minOwnerBalance = amount;
     }
 
     /// OWNER CHANGE LOGIC
@@ -181,12 +217,6 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     function _updatePeg(int256 amount) internal {
         unchecked { deviation += int256(amount); }
-    }
-
-    function _update(address from, address to, uint256 value) internal override {
-        if (hasRole(BLACKLISTED, msg.sender)) revert Blacklisted();
-        // if (trackedToken.balanceOf(owner) < balanceOf(owner)) revert NotEnoughCollateral();
-        super._update(from, to, value);
     }
 
     /// READERS
