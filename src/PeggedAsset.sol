@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import {ERC20Upgradeable, IERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -24,7 +24,8 @@ import {IPeggedAsset} from "interfaces/IPeggedAsset.sol";
 //   Чтобы было что сжигать при колебании колва ЛП
 // - овнер может сжигать и минтить токены кому хочет если отклонение пега не больше определенного значения. 
 //   Это значение может быть установлено овнером.
-// - пользователи могут передавать токены если они не в блэклисте. В блэклист может добавить любой админ. Только овнер назначает роли.
+// - пользователи могут передавать токены если они не в блэклисте. В блэклист может добавить любой админ. 
+//   Только овнер назначает роли.
 // - пользователи могут передавать токены если отклонение пэга в большую сторону не больше определенного значения. 
 //   То есть пока их обеспечение достаточное
 // - вызов функции sync может делать любой. Эта функция контролирует саплай токена. 
@@ -32,7 +33,6 @@ import {IPeggedAsset} from "interfaces/IPeggedAsset.sol";
 //   Если нужно сжечь, они сжигаются у овнера. 
 //   Если не достаточно токенов на балансе овнера, то сжигается столько сколько у него есть на балансе.
 // - функция sync вызывается ораклом при наличии отслеживаемых эвентов в ЛП контракте.
-// - при недостаточной обеспеченности отключается возможность минтить больше токенов овнером
 
 contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessControlUpgradeable {
     bytes32 public constant SUPER_ADMIN = keccak256("SUPER_ADMIN");
@@ -95,12 +95,10 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     }
 
     modifier checkDeviation(int256 value) {
-        if (deviation + value > int256(maxDeviation) || deviation + value < -int256(maxDeviation)) revert TooLargeDeviation();
-        _;
-    }
-
-    modifier checkOwnerBalance(address from, uint256 value) {
-        if (from == owner && balanceOf(owner) - value < minOwnerBalance) revert MinOwnerBalanceCrossed();
+        if (
+            deviation + value > int256(maxDeviation) || 
+            deviation + value < -int256(maxDeviation)
+        ) revert TooLargeDeviation();
         _;
     }
 
@@ -122,17 +120,13 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         }
     }
 
-    function transfer(address to, uint256 value) public override checkOwnerBalance(msg.sender, value) returns (bool) {
-        if (hasRole(BLACKLISTED, msg.sender)) revert Blacklisted();
-        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
-        if (trackedTokenBalance < totalSupply() && totalSupply() - trackedTokenBalance > maxDepeg) revert MaxDepegReached();
+    function transfer(address to, uint256 value) public override returns (bool) {
+        _checkValidity(msg.sender, value);
         return super.transfer(to, value);
     } 
 
-    function transferFrom(address from, address to, uint256 value) public override checkOwnerBalance(from, value) returns (bool) {
-        if (hasRole(BLACKLISTED, from)) revert Blacklisted();
-        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
-        if (trackedTokenBalance < totalSupply() && totalSupply() - trackedTokenBalance > maxDepeg) revert MaxDepegReached();
+    function transferFrom(address from, address to, uint256 value) public override returns (bool) {
+        _checkValidity(from, value);
         return super.transferFrom(from, to, value);
     }
 
@@ -144,7 +138,8 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         emit Minted(who, amount);
     }
 
-    function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) checkOwnerBalance(who, amount) checkDeviation(-int256(amount)) {
+    function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) checkDeviation(-int256(amount)) {
+        _checkOwnerBalance(who, amount);
         _updatePeg(-int256(amount));
         _burn(who, amount);
         emit Burned(who, amount);
@@ -217,6 +212,25 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     function _updatePeg(int256 amount) internal {
         unchecked { deviation += int256(amount); }
+    }
+
+    function _checkValidity(address from, uint256 value) internal view {
+        // chack if blacklisted
+        if (hasRole(BLACKLISTED, msg.sender)) revert Blacklisted();
+
+        // check owner balance
+        _checkOwnerBalance(from, value);
+
+        // check max depeg
+        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
+        if (
+            trackedTokenBalance < totalSupply() && 
+            totalSupply() - trackedTokenBalance > maxDepeg
+        ) revert MaxDepegReached();
+    }
+
+    function _checkOwnerBalance(address from, uint256 value) internal view {
+        if (from == owner && balanceOf(owner) - value < minOwnerBalance) revert MinOwnerBalanceCrossed();
     }
 
     /// READERS
