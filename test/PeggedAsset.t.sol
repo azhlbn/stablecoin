@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {IAccessControl} from "@openzeppelin-contracts/access/IAccessControl.sol";
-import "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin-contracts/proxy/transparent/ProxyAdmin.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ProxyAdmin} from "@openzeppelin-contracts/proxy/transparent/ProxyAdmin.sol";
 
 import {Test, console} from "forge-std/Test.sol";
 import {PeggedAsset} from "../src/PeggedAsset.sol";
@@ -35,6 +35,58 @@ contract PeggedAssetTest is Test {
         _deploy();
     }
 
+    function test_sync() public {
+        assertEq(token.deviation(), 0);
+        assertEq(token.totalSupply(), 1_000_000 ether);
+        assertEq(token.balanceOf(deployer), 1_000_000 ether);
+        assertEq(lp.balanceOf(deployer), 1_000_000 ether);
+        assertEq(token.maxDeviation(), 100_000 ether);
+
+        lp.burn(deployer, 100_000 ether);
+        assertEq(token.totalSupply(), 1_000_000 ether);
+        assertEq(lp.balanceOf(deployer), 900_000 ether);
+
+        token.sync();
+        assertEq(token.totalSupply(), 900_000 ether);
+        assertEq(lp.balanceOf(deployer), 900_000 ether);
+        assertEq(token.balanceOf(deployer), 900_000 ether);
+
+        lp.mint(deployer, 50_000 ether);
+        assertEq(lp.balanceOf(deployer), 950_000 ether);
+        assertEq(token.totalSupply(), 900_000 ether);
+        assertEq(token.balanceOf(deployer), 900_000 ether);
+
+        token.sync();
+        assertEq(token.totalSupply(), 950_000 ether);
+        assertEq(lp.balanceOf(deployer), 950_000 ether);
+        assertEq(token.balanceOf(deployer), 950_000 ether);
+
+        lp.burn(deployer, 900_000 ether);
+        assertEq(lp.balanceOf(deployer), 50_000 ether);
+        assertEq(token.totalSupply(), 950_000 ether);
+        assertEq(token.balanceOf(deployer), 950_000 ether);
+
+        token.sync();
+        assertEq(token.totalSupply(), 50_000 ether);
+        assertEq(lp.balanceOf(deployer), 50_000 ether);
+        assertEq(token.balanceOf(deployer), 50_000 ether);
+
+        switchPrank(deployer);
+        token.transfer(user1, 10_000 ether);
+        lp.burn(deployer, 45_000 ether);
+        assertEq(lp.balanceOf(deployer), 5_000 ether);
+        assertEq(token.totalSupply(), 50_000 ether);
+        assertEq(token.balanceOf(deployer), 40_000 ether);
+
+        // case when owner hasn't enough tokens for burn
+        // as result we have the gap equal to 5_000 ether 
+        token.sync();
+        assertEq(lp.balanceOf(deployer), 5_000 ether);
+        assertEq(token.totalSupply(), 10_000 ether);
+        assertEq(token.balanceOf(deployer), 0);
+        assertEq(token.balanceOf(user1), 10_000 ether);
+    }
+
     function test_currentPeg() public {
         assertEq(token.currentPeg(), 1e18);
         uint256 initialSupply = token.totalSupply();
@@ -44,7 +96,6 @@ contract PeggedAssetTest is Test {
 
         uint256 peg = (initialSupply + 1000 ether) * 1e18 / lp.balanceOf(deployer);
 
-        console.log(peg);
         assertEq(token.currentPeg(), peg);
     }
 

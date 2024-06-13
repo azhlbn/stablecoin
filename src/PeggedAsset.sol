@@ -7,32 +7,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 
 import {IPeggedAsset} from "interfaces/IPeggedAsset.sol";
 
-// todo
-// + Роли с доступами:
-// SUPER_ADMIN: блэклист / mint / burn / ручное восстановление пега
-// ADMIN: блэклист / ручное восстановление пега
-// + Blacklist. Добавленный адрес не сможет получать и отправлять токены.
-// + mint/burn токенов овнером. Этим будет меняться пег.
-// + ридер для отображения текущего пега. Функция будет выдавать соотношение баланса в ЛП токенах овнера и саплая новых токенов.
-// + логика для ручного восстановления пега (см. edge cases)
-// + добавить смену главного админа
-// + добавить ограничение на отклонение пега (?)
-
-// flow
-// - деплой контракта, минт соответствующего колва токенов
-// - овнер передает токены кому хочет. Может передавать/сжигать пока на балансе токенов не меньше чем установлено. 
-//   Чтобы было что сжигать при колебании колва ЛП
-// - овнер может сжигать и минтить токены кому хочет если отклонение пега не больше определенного значения. 
-//   Это значение может быть установлено овнером.
-// - пользователи могут передавать токены если они не в блэклисте. В блэклист может добавить любой админ. 
-//   Только овнер назначает роли.
-// - пользователи могут передавать токены если отклонение пэга в большую сторону не больше определенного значения. 
-//   То есть пока их обеспечение достаточное
-// - вызов функции sync может делать любой. Эта функция контролирует саплай токена. 
-//   Если нужно доминтить токены, они доминчиваются на адрес овнера. 
-//   Если нужно сжечь, они сжигаются у овнера. 
-//   Если не достаточно токенов на балансе овнера, то сжигается столько сколько у него есть на балансе.
-// - функция sync вызывается ораклом при наличии отслеживаемых эвентов в ЛП контракте.
 
 contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessControlUpgradeable {
     bytes32 public constant SUPER_ADMIN = keccak256("SUPER_ADMIN");
@@ -45,7 +19,7 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     IERC20 public trackedToken;
     address public owner;
 
-    // peg deviation
+    // peg deviation params
     int256 public deviation;
     uint256 public maxDeviation;
 
@@ -80,6 +54,7 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         // by default equal to 10% of initial supply
         maxDeviation = trackedToken.balanceOf(owner) / 10;
 
+        // by default equal to 50%
         minOwnerBalance = 5000;
 
         // by default equal to 10% of initial supply
@@ -96,7 +71,7 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     /// PUBLIC LOGIC
 
-    /// @dev Peg adjusting
+    /// @dev Synchronization of balances
     function sync() public {
         uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
         int256 targetSupply = int256(trackedTokenBalance) + deviation;
@@ -112,11 +87,13 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         }
     }
 
+    /// @dev Overrided transfer with validity checks
     function transfer(address to, uint256 value) public override returns (bool) {
         _checkValidity(msg.sender, value);
         return super.transfer(to, value);
     } 
 
+    /// @dev Overrided transferFrom with validity checks
     function transferFrom(address from, address to, uint256 value) public override returns (bool) {
         _checkValidity(from, value);
         return super.transferFrom(from, to, value);
@@ -124,12 +101,15 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     /// SUPER ADMIN LOGIC
 
+    /// @dev Mint tokens by SUPER_ADMIN witch peg affecting
     function mint(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
         _updatePeg(int256(amount));
         _mint(who, amount);
         emit Minted(who, amount);
     }
 
+    /// @dev Burn tokens by SUPER_ADMIN witch peg affecting
+    ///      Also owner's balance checks on not crossing the min balance
     function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
         _checkOwnerBalance(who, amount);
         _updatePeg(-int256(amount));
@@ -137,26 +117,31 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         emit Burned(who, amount);
     }
 
+    /// @dev Set param which is restrict the max token balance deviation
     function setMaxDeviation(uint256 value) external onlyRole(SUPER_ADMIN) {
         maxDeviation = value;
     }
 
+    /// @dev Set param for minimum owner's token balance restriction
     function setMinOwnerBalance(uint256 share) external onlyRole(SUPER_ADMIN) {
         minOwnerBalance = share;
     }
 
+    /// @dev Set param that control maximum margin of token balance from tracked token balance
     function setMaxDepeg(uint256 value) external onlyRole(SUPER_ADMIN) {
         maxDepeg = value;
     }
 
     /// ADMIN LOGIC
 
+    /// @dev Add address to blacklist by any admin
     function addToBlacklist(address who) external onlyAdmin {
         if (who == address(0)) revert ZeroAddress();
         _grantRole(BLACKLISTED, who);
         emit AddedToBlacklist(who);
     }
 
+    /// @dev Remove address from blacklist by any admin
     function removeFromBlacklist(address who) external onlyAdmin {
         if (who == address(0)) revert ZeroAddress();
         _revokeRole(BLACKLISTED, who);
@@ -166,7 +151,6 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     /// OWNER CHANGE LOGIC
 
     /// @notice Propose a new owner
-    /// @param _newOwner New contract owner
     function grantOwnership(address _newOwner) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_newOwner == address(0)) revert ZeroAddress();
         if (hasRole(DEFAULT_ADMIN_ROLE, _newOwner)) revert OwnerMatch();

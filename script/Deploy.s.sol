@@ -3,10 +3,17 @@ pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
 
-contract CounterScript is Script {
+contract Deploy is Script {
     function setUp() public {}
 
     function run() public {
-        vm.broadcast();
+        uint256 deployerPK = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPK);
+
+        
+
+        console.log("Deployed at:", address(xnastr));
+
+        vm.stopBroadcast();
     }
 }

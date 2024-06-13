@@ -1,66 +1,20 @@
-## Foundry
+![Algem](https://github.com/azhlbn/LendingAdapter/blob/main/logo.png)
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Pegged Asset
+A contract representing an ERC20 standard token. The token supply will reflect the supply of the LP token specified during deployment on one of the decentralized exchanges. The peg will be maintained using an oracle and a `sync()` function, which can be called either automatically or manually. The contract uses two roles for access to functionality and includes the capability to add addresses to a blacklist. Additionally, the manager can influence the token's peg relative to the LP token through minting and burning.
 
-Foundry consists of:
+### The functionality
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+SUPER_ADMIN role:
+- `mint` 
+- `burn` 
+- `setMaxDeviation`
+- `setMinOwnerBalance`
+- `setMaxDepeg` 
 
-## Documentation
+ADMIN role:
+- `addToBlacklist`
+- `removeFromBlacklist`
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+Without role:
+ERC20 functionality
