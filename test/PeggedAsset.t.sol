@@ -87,6 +87,16 @@ contract PeggedAssetTest is Test {
         assertEq(token.balanceOf(user1), 10_000 ether);
     }
 
+    function test_ok() public {
+        assertTrue(token.ok());
+
+        lp.burn(deployer, 1 ether);
+        assertFalse(token.ok());
+
+        token.sync();
+        assertTrue(token.ok());
+    }
+
     function test_currentPeg() public {
         assertEq(token.currentPeg(), 1e18);
         uint256 initialSupply = token.totalSupply();
