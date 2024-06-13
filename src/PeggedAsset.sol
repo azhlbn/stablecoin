@@ -40,6 +40,7 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     bytes32 public constant BLACKLISTED = keccak256("BLACKLISTED");
 
     uint256 public constant PEG_PRECISION = 1e18;
+    uint256 public constant SHARE_PRECISION = 10000;
 
     IERC20 public trackedToken;
     address public owner;
@@ -48,7 +49,7 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     int256 public deviation;
     uint256 public maxDeviation;
 
-    uint256 public minOwnerBalance;
+    uint256 public minOwnerBalance; // share of the balance of LP tokens
     uint256 public maxDepeg;
 
     address internal _grantedOwner;
@@ -79,8 +80,7 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         // by default equal to 10% of initial supply
         maxDeviation = trackedToken.balanceOf(owner) / 10;
 
-        // by default equal to 50% of initial supply
-        minOwnerBalance = trackedToken.balanceOf(owner) / 2;
+        minOwnerBalance = 5000;
 
         // by default equal to 10% of initial supply
         maxDepeg = trackedToken.balanceOf(owner) / 10;
@@ -91,14 +91,6 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     modifier onlyAdmin() {
         if (!hasRole(SUPER_ADMIN, msg.sender) && !hasRole(ADMIN, msg.sender)) revert OnlyForAdmin();
-        _;
-    }
-
-    modifier checkDeviation(int256 value) {
-        if (
-            deviation + value > int256(maxDeviation) || 
-            deviation + value < -int256(maxDeviation)
-        ) revert TooLargeDeviation();
         _;
     }
 
@@ -132,13 +124,13 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     /// SUPER ADMIN LOGIC
 
-    function mint(address who, uint256 amount) public onlyRole(SUPER_ADMIN) checkDeviation(int256(amount)) {
+    function mint(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
         _updatePeg(int256(amount));
         _mint(who, amount);
         emit Minted(who, amount);
     }
 
-    function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) checkDeviation(-int256(amount)) {
+    function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
         _checkOwnerBalance(who, amount);
         _updatePeg(-int256(amount));
         _burn(who, amount);
@@ -149,11 +141,11 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         maxDeviation = value;
     }
 
-    function setMinOwnerBalance(uint256 value) external onlyRole(SUPER_ADMIN) {
-        minOwnerBalance = value;
+    function setMinOwnerBalance(uint256 share) external onlyRole(SUPER_ADMIN) {
+        minOwnerBalance = share;
     }
 
-    function setMaxDegep(uint256 value) external onlyRole(SUPER_ADMIN) {
+    function setMaxDepeg(uint256 value) external onlyRole(SUPER_ADMIN) {
         maxDepeg = value;
     }
 
@@ -186,14 +178,12 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     function claimOwnership() external {
         if (_grantedOwner != msg.sender) revert NotGrantedOwner();
         _grantRole(DEFAULT_ADMIN_ROLE, _grantedOwner);
+        _grantRole(SUPER_ADMIN, _grantedOwner);
         _revokeRole(DEFAULT_ADMIN_ROLE, owner);
-        
-        // move the treasury form the old owner to the new one
-        trackedToken.transfer(_grantedOwner, trackedToken.balanceOf(owner));
+        _revokeRole(SUPER_ADMIN, owner);
         
         owner = _grantedOwner;
         _grantedOwner = address(0);
-
     }
 
     /// @notice The ability to refuse a DEFAULT_ADMIN_ROLE is disabled
@@ -210,8 +200,12 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     /// INTERNAL LOGIC
 
-    function _updatePeg(int256 amount) internal {
-        unchecked { deviation += int256(amount); }
+    function _updatePeg(int256 value) internal {
+        if (
+            deviation + value > int256(maxDeviation) || 
+            deviation + value < -int256(maxDeviation)
+        ) revert TooLargeDeviation();
+        unchecked { deviation += int256(value); }
     }
 
     function _checkValidity(address from, uint256 value) internal view {
@@ -230,7 +224,10 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     }
 
     function _checkOwnerBalance(address from, uint256 value) internal view {
-        if (from == owner && balanceOf(owner) - value < minOwnerBalance) revert MinOwnerBalanceCrossed();
+        if (
+            from == owner && balanceOf(owner) - value < 
+            trackedToken.balanceOf(owner) * minOwnerBalance / SHARE_PRECISION
+        ) revert MinOwnerBalanceCrossed();
     }
 
     /// READERS
