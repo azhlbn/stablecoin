@@ -52,18 +52,3 @@ contract Deploy is Script {
 // == Logs ==
 //   Deployed proxy:  0x08243595e33F0aeC1Ce8d1d4CEDf25957ab6F694
 //   Deployed impl:  0xA758433d1Ed6a83567D371eeE9ff1137CDef8cf9
-
-// forge verify-contract \
-//     --chain-id 11155111 \
-//     --num-of-optimizations 1000000 \
-//     --watch \
-//     --etherscan-api-key "AXQETH55UUJXDQJ13H59IYHYAZYWB2XBIG" \
-//     --compiler-version v0.8.24+commit.e11b9ed9 \
-//     0xA758433d1Ed6a83567D371eeE9ff1137CDef8cf9 \
-//     src/PeggedAsset.sol:PeggedAsset
-
-// forge create --rpc-url sepolia \
-//     --private-key "0xb645aaa13090fcd42d8d98921229217e6cb9f4e4c06181b01b9d43d1e2f60fbd" \
-//     --etherscan-api-key "AXQETH55UUJXDQJ13H59IYHYAZYWB2XBIG" \
-//     --verify \
-//     src/PeggedAsset.sol:PeggedAsset
