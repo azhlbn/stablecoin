@@ -1491,9 +1491,14 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     /// READERS
 
-    /// @notice Current peg deviation
+    /// @dev Current peg deviation
     function currentPeg() external view returns (uint256) {
         uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
         return uint256(int256(trackedTokenBalance) + deviation) * PEG_PRECISION / trackedTokenBalance;
+    }
+
+    /// @dev Check if balances updated
+    function ok() external view returns (bool) {
+        return int256(trackedToken.balanceOf(owner)) + deviation == int256(totalSupply());
     }
 }

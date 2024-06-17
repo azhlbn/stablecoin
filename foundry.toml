@@ -8,4 +8,5 @@ libs = ["lib"]
 [rpc_endpoints]
 sepolia = "${SEPOLIA_RPC_URL}"
 astar = "${ASTAR_RPC_URL}"
+arbitrum = "${ARBITRUM_RPC_URL}"
 localhost = "${LOCALHOST}"

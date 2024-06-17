@@ -27,9 +27,9 @@ contract Deploy is Script {
 
         admin = new ProxyAdmin(owner);
 
-        impl = new PeggedAsset();
+        // impl = new PeggedAsset();
         proxy = new TransparentUpgradeableProxy(
-            address(impl),
+            0xd823D1B888DD51ab08c154Dd694c43550EF804C5,
             address(admin),
             ""
         );
@@ -45,10 +45,12 @@ contract Deploy is Script {
         vm.stopBroadcast();
 
         console.log("Deployed proxy: ", address(proxy));
-        console.log("Deployed impl: ", address(impl));
+        console.log("Deployed admin: ", address(admin));
+        // console.log("Deployed impl: ", address(impl));
     }
 }
 
 // == Logs ==
-//   Deployed proxy:  0x08243595e33F0aeC1Ce8d1d4CEDf25957ab6F694
-//   Deployed impl:  0xA758433d1Ed6a83567D371eeE9ff1137CDef8cf9
+//   Deployed proxy:  0xBB7a88B7A80a024290ceE3E67C073fa0f9186377
+//   Deployed admin:  0xff5f9f5ac0309f43f2afe263231736a96308ac26
+//   Deployed imple:  0xd823D1B888DD51ab08c154Dd694c43550EF804C5
