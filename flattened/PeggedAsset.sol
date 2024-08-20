@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20 ^0.8.24;
+pragma solidity >=0.5.0 >=0.6.2 ^0.8.20 ^0.8.24;
 
 // lib/openzeppelin-contracts/contracts/access/IAccessControl.sol
 
@@ -593,6 +593,173 @@ abstract contract Initializable {
     }
 }
 
+// lib/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+interface IUniswapV2Factory {
+    event PairCreated(address indexed token0, address indexed token1, address pair, uint);
+
+    function feeTo() external view returns (address);
+    function feeToSetter() external view returns (address);
+
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+    function allPairs(uint) external view returns (address pair);
+    function allPairsLength() external view returns (uint);
+
+    function createPair(address tokenA, address tokenB) external returns (address pair);
+
+    function setFeeTo(address) external;
+    function setFeeToSetter(address) external;
+}
+
+// lib/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+interface IUniswapV2Pair {
+    event Approval(address indexed owner, address indexed spender, uint value);
+    event Transfer(address indexed from, address indexed to, uint value);
+
+    function name() external pure returns (string memory);
+    function symbol() external pure returns (string memory);
+    function decimals() external pure returns (uint8);
+    function totalSupply() external view returns (uint);
+    function balanceOf(address owner) external view returns (uint);
+    function allowance(address owner, address spender) external view returns (uint);
+
+    function approve(address spender, uint value) external returns (bool);
+    function transfer(address to, uint value) external returns (bool);
+    function transferFrom(address from, address to, uint value) external returns (bool);
+
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
+    function PERMIT_TYPEHASH() external pure returns (bytes32);
+    function nonces(address owner) external view returns (uint);
+
+    function permit(address owner, address spender, uint value, uint deadline, uint8 v, bytes32 r, bytes32 s) external;
+
+    event Mint(address indexed sender, uint amount0, uint amount1);
+    event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
+    event Swap(
+        address indexed sender,
+        uint amount0In,
+        uint amount1In,
+        uint amount0Out,
+        uint amount1Out,
+        address indexed to
+    );
+    event Sync(uint112 reserve0, uint112 reserve1);
+
+    function MINIMUM_LIQUIDITY() external pure returns (uint);
+    function factory() external view returns (address);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function price0CumulativeLast() external view returns (uint);
+    function price1CumulativeLast() external view returns (uint);
+    function kLast() external view returns (uint);
+
+    function mint(address to) external returns (uint liquidity);
+    function burn(address to) external returns (uint amount0, uint amount1);
+    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+    function skim(address to) external;
+    function sync() external;
+
+    function initialize(address, address) external;
+}
+
+// lib/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+interface IUniswapV2Router01 {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
+
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+    function removeLiquidityETH(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountToken, uint amountETH);
+    function removeLiquidityWithPermit(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline,
+        bool approveMax, uint8 v, bytes32 r, bytes32 s
+    ) external returns (uint amountA, uint amountB);
+    function removeLiquidityETHWithPermit(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline,
+        bool approveMax, uint8 v, bytes32 r, bytes32 s
+    ) external returns (uint amountToken, uint amountETH);
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+    function swapTokensForExactTokens(
+        uint amountOut,
+        uint amountInMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+    function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
+        external
+        payable
+        returns (uint[] memory amounts);
+    function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)
+        external
+        returns (uint[] memory amounts);
+    function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
+        external
+        returns (uint[] memory amounts);
+    function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline)
+        external
+        payable
+        returns (uint[] memory amounts);
+
+    function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB);
+    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut);
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn);
+    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
+    function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
+}
+
 // src/interfaces/IPeggedAsset.sol
 
 contract IPeggedAsset {
@@ -618,7 +785,7 @@ contract IPeggedAsset {
     error NotEnoughCollateral();
 
     /// @dev The transfer or burn is not allowed if after this the balance of this owner's token falls below minOwnerBalance
-    error MinOwnerBalanceCrossed();
+    error MinContractBalanceCrossed();
 
     /// @dev Going beyond maximum deviation
     error TooLargeDeviation();
@@ -626,10 +793,30 @@ contract IPeggedAsset {
     /// @dev Max depeg reached, not allow to transfer any tokens
     error MaxDepegReached();
 
+    /// @dev User hasn't enough tokens to add
+    error NotEnoughTokensToAdd();
+
+    /// @dev User hasn't enough tokens to burn
+    error NotEnoughTokensToBurn();
+
+    /// @dev Not enough LP tokens on contract balance to remove liquidity from uni v2 pool
+    error NotEnoughLiquidityBalance();
+
+    /// @dev Not enough tokens to transfer from contract address
+    error NotEnoughTokensToIssue();
+
+    /// @dev Issue ended with fail
+    error IssueFailed();
+
+    error NotEnoughLPToAdd();
+
     event Minted(address indexed from, uint256 indexed amount);
     event Burned(address indexed from, uint256 indexed amount);
     event AddedToBlacklist(address indexed who);
     event RevomedFromBlacklist(address indexed who);
+    event LiquidityAdded(address indexed sender, uint256 indexed liquidity);
+    event LiquidityRemoved(address indexed sender, uint256 indexed burnAmount);
+    event LPAdded(address indexed sender, uint256 indexed liquidity);
 }
 
 // lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol
@@ -1283,25 +1470,30 @@ abstract contract ERC20Upgradeable is Initializable, ContextUpgradeable, IERC20,
 
 // src/PeggedAsset.sol
 
+/// @custom:todo
+/// - possibility to add LP tokens manually & automaticaly
+
 contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessControlUpgradeable {
+    IUniswapV2Router01 public router;
+    IUniswapV2Pair public pair;
+
     bytes32 public constant SUPER_ADMIN = keccak256("SUPER_ADMIN");
     bytes32 public constant ADMIN = keccak256("ADMIN");
     bytes32 public constant BLACKLISTED = keccak256("BLACKLISTED");
 
     uint256 public constant PEG_PRECISION = 1e18;
-    uint256 public constant SHARE_PRECISION = 10000;
 
-    IERC20 public trackedToken;
     address public owner;
+    IERC20 public tokenA;
+    IERC20 public tokenB;
 
     // peg deviation params
     int256 public deviation;
     uint256 public maxDeviation;
 
-    uint256 public minOwnerBalance; // share of the balance of LP tokens
-    uint256 public maxDepeg;
-
     address internal _grantedOwner;
+
+    uint8 private _dec;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -1309,31 +1501,29 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     }
 
     function initialize(
-        IERC20 trackedTokenAddress,
         address initialOwner, 
         string memory tokenName,
-        string memory tokenSymbol
+        string memory tokenSymbol,
+        address _tokenA,
+        address _tokenB,
+        address _router,
+        uint8 _decimals
     ) initializer public {
         __ERC20_init(tokenName, tokenSymbol);
         __AccessControl_init();
 
-        if (address(trackedTokenAddress) == address(0)) revert ZeroAddress();
-        if (initialOwner == address(0)) revert ZeroAddress();
+        if (
+            address(_tokenA) == address(0) || 
+            address(_tokenB) == address(0) ||
+            initialOwner == address(0)
+        ) revert ZeroAddress();
 
-        trackedToken = trackedTokenAddress;
-        owner = initialOwner;        
+        owner = initialOwner;       
+        _dec = _decimals;
 
-        // initial supply
-        _mint(owner, trackedToken.balanceOf(owner));
-
-        // by default equal to 10% of initial supply
-        maxDeviation = trackedToken.balanceOf(owner) / 10;
-
-        // by default equal to 50%
-        minOwnerBalance = 5000;
-
-        // by default equal to 10% of initial supply
-        maxDepeg = trackedToken.balanceOf(owner) / 10;
+        tokenA = IERC20(_tokenA);
+        tokenB = IERC20(_tokenB);
+        router = IUniswapV2Router01(_router);
 
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
         _grantRole(SUPER_ADMIN, owner);
@@ -1346,35 +1536,114 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
 
     /// PUBLIC LOGIC
 
-    /// @dev Synchronization of balances
-    function sync() public {
-        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
-        int256 targetSupply = int256(trackedTokenBalance) + deviation;
+    /// @dev Add liquidity to uniswap v2
+    /// @param usdcAmount Amount of USDC tokens to add. USDT will be calculated automatically
+    function addLiquidity(uint256 usdcAmount) external returns (uint256 addedA, uint256 addedB, uint256 liquidity) {
+        uint256 usdtAmount = usdcAmount;
 
-        uint256 supply = totalSupply();
-        if (targetSupply < int256(supply)) {
-            uint256 forBurn = uint256(int256(supply) - targetSupply);
-            // burn full owner's token balance if not enough tokens for burn
-            if (balanceOf(owner) < forBurn) _burn(owner, balanceOf(owner));
-            else _burn(owner, uint256(int256(supply) - targetSupply));
-        } else if (targetSupply > int256(supply)) {
-            _mint(owner, uint256(targetSupply - int256(supply)));
+        if (address(pair) != address(0)) {
+            (uint112 reserveA, uint112 reserveB, ) = pair.getReserves();
+            usdtAmount = router.quote(usdcAmount, reserveA, reserveB);
         }
+
+        if (
+            tokenA.balanceOf(msg.sender) < usdcAmount || 
+            tokenB.balanceOf(msg.sender) < usdtAmount
+        ) revert NotEnoughTokensToAdd();
+
+        tokenA.transferFrom(msg.sender, address(this), usdcAmount);
+        tokenB.transferFrom(msg.sender, address(this), usdtAmount);
+
+        tokenA.approve(address(router), usdcAmount);
+        tokenB.approve(address(router), usdtAmount);
+
+        uint256 amountAMin;
+        uint256 amountBMin;
+        
+        (addedA, addedB, liquidity) = router.addLiquidity(
+            address(tokenA),
+            address(tokenB),
+            usdcAmount,
+            usdtAmount,
+            amountAMin,
+            amountBMin,
+            address(this),
+            block.timestamp + 20 * 60 // 20 min
+        );
+
+        _mint(address(this), liquidity * 2);
+
+        if (address(pair) == address(0)) {
+            address factory = router.factory();
+            pair = IUniswapV2Pair(IUniswapV2Factory(factory).getPair(address(tokenA), address(tokenB)));
+        }
+
+        if (addedA < usdcAmount) tokenA.transfer(msg.sender, usdcAmount - addedA);
+        if (addedB < usdtAmount) tokenB.transfer(msg.sender, usdtAmount - addedB);
+
+        emit LiquidityAdded(msg.sender, liquidity);
+    }
+
+    /// @dev Remove liquidity from uniswap v2
+    function removeLiquidity(uint256 burnAmount) external returns(uint256 amountA, uint256 amountB) {
+        uint256 liquidityToRemove = burnAmount / 2;
+
+        uint256 amountAMin;
+        uint256 amountBMin;
+
+        if (balanceOf(msg.sender) < burnAmount) revert NotEnoughTokensToBurn();
+        if (liquidityToRemove > pair.balanceOf(address(this))) revert NotEnoughLiquidityBalance();
+
+        _burn(msg.sender, burnAmount);
+
+        pair.approve(address(router), liquidityToRemove);
+
+        (amountA, amountB) = router.removeLiquidity(
+            address(tokenA),
+            address(tokenB),
+            liquidityToRemove,
+            amountAMin,
+            amountBMin,
+            address(this),
+            block.timestamp + 20 * 60
+        );
+
+        tokenA.transfer(msg.sender, amountA);
+        tokenB.transfer(msg.sender, amountB);
+
+        emit LiquidityRemoved(msg.sender, burnAmount);
+    }
+
+    function addLP(uint256 liquidity) external {
+        if (address(pair) == address(0)) {
+            address factory = router.factory();
+            pair = IUniswapV2Pair(IUniswapV2Factory(factory).getPair(address(tokenA), address(tokenB)));
+        }
+        if (pair.balanceOf(msg.sender) < liquidity) revert NotEnoughLPToAdd();
+        pair.transferFrom(msg.sender, address(this), liquidity);
+        _mint(address(this), liquidity * 2);
+        emit LPAdded(msg.sender, liquidity);
     }
 
     /// @dev Overrided transfer with validity checks
     function transfer(address to, uint256 value) public override returns (bool) {
-        _checkValidity(msg.sender, value);
+        if (hasRole(BLACKLISTED, msg.sender)) revert Blacklisted();
         return super.transfer(to, value);
     } 
 
     /// @dev Overrided transferFrom with validity checks
     function transferFrom(address from, address to, uint256 value) public override returns (bool) {
-        _checkValidity(from, value);
+        if (hasRole(BLACKLISTED, msg.sender)) revert Blacklisted();
         return super.transferFrom(from, to, value);
     }
 
-    /// SUPER ADMIN LOGIC
+    /// SUPER ADMIN LOGIC 
+
+    /// @dev Transfer tokens from contract's balance
+    function issue(address to, uint256 value) external onlyRole(SUPER_ADMIN) {
+        if (balanceOf(address(this)) < value) revert NotEnoughTokensToIssue();
+        if (!this.transfer(to, value)) revert IssueFailed();
+    }
 
     /// @dev Mint tokens by SUPER_ADMIN witch peg affecting
     function mint(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
@@ -1386,7 +1655,6 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     /// @dev Burn tokens by SUPER_ADMIN witch peg affecting
     ///      Also owner's balance checks on not crossing the min balance
     function burn(address who, uint256 amount) public onlyRole(SUPER_ADMIN) {
-        _checkOwnerBalance(who, amount);
         _updatePeg(-int256(amount));
         _burn(who, amount);
         emit Burned(who, amount);
@@ -1395,16 +1663,6 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     /// @dev Set param which is restrict the max token balance deviation
     function setMaxDeviation(uint256 value) external onlyRole(SUPER_ADMIN) {
         maxDeviation = value;
-    }
-
-    /// @dev Set param for minimum owner's token balance restriction
-    function setMinOwnerBalance(uint256 share) external onlyRole(SUPER_ADMIN) {
-        minOwnerBalance = share;
-    }
-
-    /// @dev Set param that control maximum margin of token balance from tracked token balance
-    function setMaxDepeg(uint256 value) external onlyRole(SUPER_ADMIN) {
-        maxDepeg = value;
     }
 
     /// ADMIN LOGIC
@@ -1467,38 +1725,15 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
         unchecked { deviation += int256(value); }
     }
 
-    function _checkValidity(address from, uint256 value) internal view {
-        // chack if blacklisted
-        if (hasRole(BLACKLISTED, msg.sender)) revert Blacklisted();
-
-        // check owner balance
-        _checkOwnerBalance(from, value);
-
-        // check max depeg
-        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
-        if (
-            trackedTokenBalance < totalSupply() && 
-            totalSupply() - trackedTokenBalance > maxDepeg
-        ) revert MaxDepegReached();
-    }
-
-    function _checkOwnerBalance(address from, uint256 value) internal view {
-        if (
-            from == owner && balanceOf(owner) - value < 
-            trackedToken.balanceOf(owner) * minOwnerBalance / SHARE_PRECISION
-        ) revert MinOwnerBalanceCrossed();
-    }
-
     /// READERS
 
     /// @dev Current peg deviation
     function currentPeg() external view returns (uint256) {
-        uint256 trackedTokenBalance = trackedToken.balanceOf(owner);
-        return uint256(int256(trackedTokenBalance) + deviation) * PEG_PRECISION / trackedTokenBalance;
+        uint256 targetBalance = pair.balanceOf(address(this)) * 2;
+        return uint256(int256(totalSupply()) + deviation) * PEG_PRECISION / targetBalance;
     }
 
-    /// @dev Check if balances updated
-    function ok() external view returns (bool) {
-        return int256(trackedToken.balanceOf(owner)) + deviation == int256(totalSupply());
+    function decimals() public override view returns (uint8) {
+        return _dec;
     }
 }

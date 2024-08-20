@@ -3,6 +3,14 @@ pragma solidity ^0.8.20;
 
 
 contract IPeggedAsset {
+    event Minted(address indexed from, uint256 indexed amount);
+    event Burned(address indexed from, uint256 indexed amount);
+    event AddedToBlacklist(address indexed who);
+    event RevomedFromBlacklist(address indexed who);
+    event LiquidityAdded(address indexed sender, uint256 indexed liquidity);
+    event LiquidityRemoved(address indexed sender, uint256 indexed burnAmount);
+    event LPAdded(address indexed sender, uint256 indexed liquidity);
+
     /// @dev Not allowed to pass zero address
     error ZeroAddress();
 
@@ -21,20 +29,27 @@ contract IPeggedAsset {
     /// @dev Not allowed to renounce default admin role
     error NotAllowed();
 
-    /// @dev Transfer not allowed if amount of LP tokens less then owner's balance in tokens
-    error NotEnoughCollateral();
-
-    /// @dev The transfer or burn is not allowed if after this the balance of this owner's token falls below minOwnerBalance
-    error MinOwnerBalanceCrossed();
-
     /// @dev Going beyond maximum deviation
     error TooLargeDeviation();
 
-    /// @dev Max depeg reached, not allow to transfer any tokens
-    error MaxDepegReached();
+    /// @dev User hasn't enough tokens to add
+    error NotEnoughTokensToAdd();
 
-    event Minted(address indexed from, uint256 indexed amount);
-    event Burned(address indexed from, uint256 indexed amount);
-    event AddedToBlacklist(address indexed who);
-    event RevomedFromBlacklist(address indexed who);
+    /// @dev User hasn't enough tokens to burn
+    error NotEnoughTokensToBurn();
+
+    /// @dev Not enough LP tokens on contract balance to remove liquidity from uni v2 pool
+    error NotEnoughLiquidityBalance();
+
+    /// @dev Not enough tokens to transfer from contract address
+    error NotEnoughTokensToIssue();
+
+    /// @dev Issue ended with fail
+    error IssueFailed();
+
+    /// @dev User hasn't enough LP tokens on balance
+    error NotEnoughLPToAdd();
+
+    /// @dev Slippage params should be differ from previous
+    error SameSlippageParams();
 }

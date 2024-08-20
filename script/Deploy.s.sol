@@ -14,43 +14,55 @@ contract Deploy is Script {
     PeggedAsset token;
 
     ProxyAdmin admin;
+
+    IERC20 usdc;
+    IERC20 usdt;
     
     address owner;
 
     function setUp() public {
-        owner = 0x7ECD92b9835E0096880bF6bA778d9eA40d1338B5;
+        owner = 0x4E2Fb43df4857213D22acBFd54E147ea583Ae225;
+        // owner = 0x7ECD92b9835E0096880bF6bA778d9eA40d1338B5;
+        usdc = IERC20(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
+        usdt = IERC20(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9);
     }
 
     function run() public {
         uint256 deployerPK = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPK);
 
-        admin = new ProxyAdmin(owner);
-
-        // impl = new PeggedAsset();
+        impl = new PeggedAsset();
         proxy = new TransparentUpgradeableProxy(
-            0xd823D1B888DD51ab08c154Dd694c43550EF804C5,
-            address(admin),
+            address(impl),
+            vm.addr(deployerPK),
             ""
         );
         token = PeggedAsset(address(proxy));
 
         token.initialize(
-            IERC20(0xf41Aa588fB744a3569F2c378aF58Ac03Db6f534e),
             owner, 
-            "Pegged Asset",
-            "PGA"
+            "FUSDN",
+            "FUSDN",
+            0xaf88d065e77c8cC2239327C5EDb3A432268e5831, // usdc
+            0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9, // usdt
+            0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24, // router
+            6
         );
+
+        usdc.approve(address(token), type(uint256).max);
+        usdt.approve(address(token), type(uint256).max);
+        // token.setMaxDeviation(1000e6);
 
         vm.stopBroadcast();
 
         console.log("Deployed proxy: ", address(proxy));
-        console.log("Deployed admin: ", address(admin));
-        // console.log("Deployed impl: ", address(impl));
+        console.log("Deployer admin: ", vm.addr(deployerPK));
+        console.log("Deployed impl: ", address(impl));
     }
 }
 
+// with d owner
 // == Logs ==
-//   Deployed proxy:  0xBB7a88B7A80a024290ceE3E67C073fa0f9186377
-//   Deployed admin:  0xff5f9f5ac0309f43f2afe263231736a96308ac26
-//   Deployed imple:  0xd823D1B888DD51ab08c154Dd694c43550EF804C5
+//   Deployed proxy:  0x9e364c26D3b470DCc6bB2210fAf45E9f38D40908
+//   Deployer admin:  0x7ECD92b9835E0096880bF6bA778d9eA40d1338B5
+//   Deployed impl:  0xA82187BF382bcDf6A3d7518D7f3ed5a1b381F547
