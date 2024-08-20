@@ -10,9 +10,6 @@ import { IUniswapV2Router01 } from "lib/v2-periphery/contracts/interfaces/IUnisw
 import { IUniswapV2Pair } from "@uniswap-v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import { IUniswapV2Factory } from "@uniswap-v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 
-/// @custom:todo
-/// - possibility to add LP tokens manually & automaticaly
-
 
 contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessControlUpgradeable {
     IUniswapV2Router01 public router;
