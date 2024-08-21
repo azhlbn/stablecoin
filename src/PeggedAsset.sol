@@ -79,13 +79,13 @@ contract PeggedAsset is IPeggedAsset, Initializable, ERC20Upgradeable, AccessCon
     /// PUBLIC LOGIC
 
     /// @dev Add liquidity to uniswap v2
-    /// @param usdcAmount Amount of USDC tokens to add. USDT will be calculated automatically
-    function addLiquidity(uint256 usdcAmount) external returns (uint256 addedA, uint256 addedB, uint256 liquidity) {
-        uint256 usdtAmount = usdcAmount;
+    /// @param usdtAmount Amount of USDT tokens to add. USDC amount will be calculated automatically
+    function addLiquidity(uint256 usdtAmount) external returns (uint256 addedA, uint256 addedB, uint256 liquidity) {
+        uint256 usdcAmount = usdtAmount;
 
         if (address(pair) != address(0)) {
             (uint112 reserveA, uint112 reserveB, ) = pair.getReserves();
-            usdtAmount = router.quote(usdcAmount, reserveA, reserveB);
+            usdcAmount = router.quote(usdtAmount, reserveB, reserveA);
         }
 
         if (
